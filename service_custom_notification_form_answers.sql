@@ -45,7 +45,7 @@ DECLARE
     ,@MessageID INT = (SELECT top 1 Value FROM dp_Configuration_Settings CS WHERE ISNUMERIC(Value) = 1 AND CS.Domain_ID = @DomainID AND CS.Application_Code = 'Services' AND Key_Name = 'NotificationFormResponseAnswersMessageID')
 
 -- And these variables are used later in the procedure
-	,@ContactID INT = 0
+    ,@ContactID INT = 0
     ,@EmailTo VARCHAR (500)
     ,@EmailSubject VARCHAR(1000)
     ,@EmailBody VARCHAR(MAX)
@@ -53,32 +53,32 @@ DECLARE
     ,@EmailFrom VARCHAR(500)
     ,@EmailReplyTo VARCHAR(500)
     ,@FormResponseID INT = 0
-	,@FormTitle VARCHAR(500)
-	,@ResponseFirstName VARCHAR(500)
-	,@ResponseLastName VARCHAR(500)
-	,@ResponseDate DateTime
-	,@ResponsePhone VARCHAR(500)
-	,@ResponseEmail VARCHAR(500)
-	,@ResponseComments VARCHAR(500)
+    ,@FormTitle VARCHAR(500)
+    ,@ResponseFirstName VARCHAR(500)
+    ,@ResponseLastName VARCHAR(500)
+    ,@ResponseDate DateTime
+    ,@ResponsePhone VARCHAR(500)
+    ,@ResponseEmail VARCHAR(500)
+    ,@ResponseComments VARCHAR(500)
     ,@CopyMessageID INT
     ,@BaseURL NVARCHAR(250) = ISNULL((SELECT Top 1 Value FROM dp_Configuration_Settings CS WHERE CS.Domain_ID = @DomainID AND CS.Application_Code = 'SSRS' AND CS.Key_Name = 'BASEURL'),'')
-	,@ExternalURL NVARCHAR(250) = ISNULL((SELECT Top 1 External_Server_Name FROM dp_Domains WHERE dp_Domains.Domain_ID = @DomainID),'')
-	,@FormResponsePageID INT = ISNULL((SELECT TOP 1 Page_ID FROM dp_Pages P WHERE P.Table_Name = 'Form_Responses' AND P.Filter_Clause IS NULL ORDER BY Page_ID),'')
+    ,@ExternalURL NVARCHAR(250) = ISNULL((SELECT Top 1 External_Server_Name FROM dp_Domains WHERE dp_Domains.Domain_ID = @DomainID),'')
+    ,@FormResponsePageID INT = ISNULL((SELECT TOP 1 Page_ID FROM dp_Pages P WHERE P.Table_Name = 'Form_Responses' AND P.Filter_Clause IS NULL ORDER BY Page_ID),'')
     
 -- Check that the template Message ID actually exists and our key values are not NULL before running the procedure
 IF EXISTS (
-		SELECT 1 
-		FROM dp_Communications Com 
-		WHERE Com.Communication_ID = @MessageID 
-		 AND Com.Domain_ID = @DomainID
-		 )
+	SELECT 1 
+	FROM dp_Communications Com 
+	WHERE Com.Communication_ID = @MessageID 
+	 AND Com.Domain_ID = @DomainID
+	)
     AND EXISTS (
-		SELECT TOP(1) *
-		FROM Form_Responses FR 
-		 LEFT JOIN Forms F ON FR.Form_ID = F.Form_ID 
-		WHERE F.Notify = 1 
-		 AND FR._Notification_Sent_Date IS NULL 
-		 AND FR.Response_Date >= GetDate()-7
+	SELECT TOP(1) *
+	FROM Form_Responses FR 
+	 LEFT JOIN Forms F ON FR.Form_ID = F.Form_ID 
+	WHERE F.Notify = 1 
+	 AND FR._Notification_Sent_Date IS NULL 
+	 AND FR.Response_Date >= GetDate()-7
 		 )
 BEGIN
 
@@ -89,8 +89,8 @@ BEGIN
 -- Set some initial variables based on the template
 	SET @EmailBody = ISNULL((SELECT Top 1 Body FROM dp_Communications C WHERE C.Communication_ID = @MessageID),'')
 	SET @EmailSubject = ISNULL((SELECT Top 1 Subject FROM dp_Communications C WHERE C.Communication_ID = @MessageID),'')
-    SET @EmailFrom = ISNULL((SELECT Top 1 '"' + Nickname + ' ' + Last_Name + '" <' + Email_Address + '>' FROM Contacts C LEFT JOIN dp_Communications Com ON Com.From_Contact = C.Contact_ID WHERE C.Contact_ID = Com.From_Contact AND Com.Communication_ID = @MessageID),'')
-    SET @EmailReplyTo = ISNULL((SELECT Top 1 '"' + Nickname + ' ' + Last_Name + '" <' + Email_Address + '>' FROM Contacts C LEFT JOIN dp_Communications Com ON Com.Reply_to_Contact = C.Contact_ID  WHERE C.Contact_ID = Com.Reply_to_Contact AND Com.Communication_ID = @MessageID),'')
+    	SET @EmailFrom = ISNULL((SELECT Top 1 '"' + Nickname + ' ' + Last_Name + '" <' + Email_Address + '>' FROM Contacts C LEFT JOIN dp_Communications Com ON Com.From_Contact = C.Contact_ID WHERE C.Contact_ID = Com.From_Contact AND Com.Communication_ID = @MessageID),'')
+	SET @EmailReplyTo = ISNULL((SELECT Top 1 '"' + Nickname + ' ' + Last_Name + '" <' + Email_Address + '>' FROM Contacts C LEFT JOIN dp_Communications Com ON Com.Reply_to_Contact = C.Contact_ID  WHERE C.Contact_ID = Com.Reply_to_Contact AND Com.Communication_ID = @MessageID),'')
 
 -- Create our Message record. We'll add recipients later.
 	INSERT INTO [dbo].[dp_Communications]
@@ -141,27 +141,27 @@ BEGIN
 	        ,Email_To = ISNULL('"' +  C.Nickname + ' ' + C.Last_Name + '" <' + C.Email_Address + '>','')
 	        ,Email_Subject = REPLACE(@EmailSubject,'[Form_Title]', F.Form_Title)
 	        ,Email_Body = REPLACE(REPLACE(REPLACE(@EmailBody,'[Nickname]',ISNULL(C.Nickname,C.Display_Name)),'[BaseURL]',@BaseURL),'[Response_URL]','https://' + @ExternalURL + '/mp/' + CAST(@FormResponsePageID AS VARCHAR) + '/' + CAST(FR.Form_Response_ID AS VARCHAR))
-            ,FormResponseID = FR.Form_Response_ID
-			,ResponseFirstName = ISNULL(FR.First_Name,C2.Nickname)
-			,ResponseLastName = ISNULL(FR.Last_Name,C2.Last_Name)
-			,ResponseDate = FR.Response_Date
-			,FormTitle = F.Form_Title
-			,ResponsePhone = ISNULL(FR.Phone_Number,C2.Mobile_Phone)
-			,ResponseEmail = ISNULL(FR.Email_Address,C2.Email_Address)
+                ,FormResponseID = FR.Form_Response_ID
+		,ResponseFirstName = ISNULL(FR.First_Name,C2.Nickname)
+		,ResponseLastName = ISNULL(FR.Last_Name,C2.Last_Name)
+		,ResponseDate = FR.Response_Date
+		,FormTitle = F.Form_Title
+		,ResponsePhone = ISNULL(FR.Phone_Number,C2.Mobile_Phone)
+		,ResponseEmail = ISNULL(FR.Email_Address,C2.Email_Address)
             ,ResponseComments = R.Comments
 	    FROM Form_Responses FR
-			LEFT JOIN Forms F ON FR.Form_ID=F.Form_ID
-			LEFT JOIN Contacts C ON F.Primary_Contact=C.Contact_ID
-			LEFT JOIN Contacts C2 ON FR.Contact_ID=C2.Contact_ID
-			LEFT JOIN Opportunities O ON O.Custom_Form=F.Form_ID
-			LEFT JOIN Responses R ON R.Opportunity_ID=O.Opportunity_ID
-			LEFT JOIN Participants P ON R.Participant_ID=P.Participant_ID
+		LEFT JOIN Forms F ON FR.Form_ID=F.Form_ID
+		LEFT JOIN Contacts C ON F.Primary_Contact=C.Contact_ID
+		LEFT JOIN Contacts C2 ON FR.Contact_ID=C2.Contact_ID
+		LEFT JOIN Opportunities O ON O.Custom_Form=F.Form_ID
+		LEFT JOIN Responses R ON R.Opportunity_ID=O.Opportunity_ID
+		LEFT JOIN Participants P ON R.Participant_ID=P.Participant_ID
         WHERE C.Email_Address IS NOT NULL
-			AND ((ISNULL(P.Participant_ID,C2.Participant_Record) = C2.Participant_Record) OR (ISNULL(P.Participant_ID,C2.Participant_Record) IS NULL))
-			AND ISNULL(R.Response_Date,GetDate()) >= GetDate()-30
+		AND ((ISNULL(P.Participant_ID,C2.Participant_Record) = C2.Participant_Record) OR (ISNULL(P.Participant_ID,C2.Participant_Record) IS NULL))
+		AND ISNULL(R.Response_Date,GetDate()) >= GetDate()-30
             AND F.Notify = 1
-			AND FR.Response_Date >= GetDate()-7
-			AND FR._Notification_Sent_Date IS NULL
+		AND FR.Response_Date >= GetDate()-7
+		AND FR._Notification_Sent_Date IS NULL
 	        AND C.Domain_ID = @DomainID
 
 -- Now lets open the cursor list and create notifications from it
@@ -210,36 +210,36 @@ BEGIN
 
                     -- We'll now add Recipients to the Message we created earlier
                         INSERT INTO [dbo].[dp_Communication_Messages]
-				            ([Communication_ID]
-				            ,[Action_Status_ID]
-				            ,[Action_Status_Time]
-				            ,[Action_Text]
-				            ,[Contact_ID]
-				            ,[From]
-				            ,[To]
-				            ,[Reply_To]
-				            ,[Subject]
-				            ,[Body]
-				            ,[Domain_ID]
-				            ,[Deleted])
-						OUTPUT INSERTED.Communication_Message_ID
-						INTO #MessageAudit
-		                SELECT DISTINCT [Communication_ID] = @CopyMessageID 
-				            ,[Action_Status_ID] = 2
-				            ,[Action_Status_Time] = GETDATE()
-				            ,[Action_Text] = NULL
-				            ,[Contact_ID] = @ContactID 
-				            ,[From] = @EmailFrom
-				            ,[To] = CASE WHEN @TestEmail = 0 THEN @EmailTo ELSE @TestEmailAddress END
-				            ,[Reply_To] = @ResponseEmail
-				            ,[Subject] = @EmailSubject
-				            ,[Body] = @EmailBody
-				            ,[Domain_ID] = @DomainID
-				            ,[Deleted] = 0
+				    ([Communication_ID]
+				    ,[Action_Status_ID]
+				    ,[Action_Status_Time]
+				    ,[Action_Text]
+				    ,[Contact_ID]
+				    ,[From]
+				    ,[To]
+				    ,[Reply_To]
+				    ,[Subject]
+				    ,[Body]
+				    ,[Domain_ID]
+				    ,[Deleted])
+				OUTPUT INSERTED.Communication_Message_ID
+				INTO #MessageAudit
+			SELECT DISTINCT [Communication_ID] = @CopyMessageID 
+				    ,[Action_Status_ID] = 2
+				    ,[Action_Status_Time] = GETDATE()
+				    ,[Action_Text] = NULL
+				    ,[Contact_ID] = @ContactID 
+				    ,[From] = @EmailFrom
+				    ,[To] = CASE WHEN @TestEmail = 0 THEN @EmailTo ELSE @TestEmailAddress END
+				    ,[Reply_To] = @ResponseEmail
+				    ,[Subject] = @EmailSubject
+				    ,[Body] = @EmailBody
+				    ,[Domain_ID] = @DomainID
+				    ,[Deleted] = 0
 
-						UPDATE Form_Responses
-							SET _Notification_Sent_Date = GetDate()
-							WHERE Form_Response_ID = @FormResponseID
+				UPDATE Form_Responses
+					SET _Notification_Sent_Date = GetDate()
+					WHERE Form_Response_ID = @FormResponseID
 
 		            END
 				ELSE
