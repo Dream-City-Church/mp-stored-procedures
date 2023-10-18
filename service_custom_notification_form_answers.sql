@@ -41,7 +41,7 @@ DECLARE
     ,@TestEmail BIT = 0 -- 0 is regular operation, 1 will send all emails to @TestEmailAddress instead of the Event Primary Contact
     ,@TestEmailAddress VARCHAR(100) = 'sswinford@dreamcitychurch.us' -- Email address that you want to receive emails when @TestEmail is set to 1
 
--- This variable is for the template Message ID (to-do: update to Templates). Before use, create a Configuration Setting and add Message ID to key value.
+-- These variables are set from Configuration Setting Keys
     ,@MessageID INT = (SELECT top 1 Value FROM dp_Configuration_Settings CS WHERE ISNUMERIC(Value) = 1 AND CS.Domain_ID = @DomainID AND CS.Application_Code = 'Services' AND Key_Name = 'NotificationFormResponseAnswersMessageID')
 
 -- And these variables are used later in the procedure
@@ -62,6 +62,7 @@ DECLARE
 	,@ResponseComments VARCHAR(500)
     ,@CopyMessageID INT
     ,@BaseURL NVARCHAR(250) = ISNULL((SELECT Top 1 Value FROM dp_Configuration_Settings CS WHERE CS.Domain_ID = @DomainID AND CS.Application_Code = 'SSRS' AND CS.Key_Name = 'BASEURL'),'')
+	,@ExternalURL NVARCHAR(250) = ISNULL((SELECT Top 1 External_Server_Name FROM dp_Domains WHERE dp_Domains.Domain_ID = @DomainID),'')
 	,@FormResponsePageID INT = ISNULL((SELECT TOP 1 Page_ID FROM dp_Pages P WHERE P.Table_Name = 'Form_Responses' AND P.Filter_Clause IS NULL ORDER BY Page_ID),'')
     
 -- Check that the template Message ID actually exists and our key values are not NULL before running the procedure
@@ -139,7 +140,7 @@ BEGIN
 	    SELECT Contact_ID = C.Contact_ID
 	        ,Email_To = ISNULL('"' +  C.Nickname + ' ' + C.Last_Name + '" <' + C.Email_Address + '>','')
 	        ,Email_Subject = REPLACE(@EmailSubject,'[Form_Title]', F.Form_Title)
-	        ,Email_Body = REPLACE(REPLACE(REPLACE(@EmailBody,'[Nickname]',ISNULL(C.Nickname,C.Display_Name)),'[BaseURL]',@BaseURL),'[Response_URL]','https://my.dreamcitychurch.us/mp/424/' + CAST(FR.Form_Response_ID AS VARCHAR))
+	        ,Email_Body = REPLACE(REPLACE(REPLACE(@EmailBody,'[Nickname]',ISNULL(C.Nickname,C.Display_Name)),'[BaseURL]',@BaseURL),'[Response_URL]','https://' + @ExternalURL + '/mp/' + CAST(@FormResponsePageID AS VARCHAR) + '/' + CAST(FR.Form_Response_ID AS VARCHAR))
             ,FormResponseID = FR.Form_Response_ID
 			,ResponseFirstName = ISNULL(FR.First_Name,C2.Nickname)
 			,ResponseLastName = ISNULL(FR.Last_Name,C2.Last_Name)
@@ -178,7 +179,7 @@ BEGIN
             -- And then concatenate onto that the details for each individual event. You can modify the HTML to adjust the styling of the table
                 SELECT @FormAnswersList = COALESCE(@FormAnswersList + '<li style="margin-bottom:1em;"><span style="font-weight:bold;">' + FF.Field_Label + ':</span><br />' + 
 						CASE WHEN FRA.Response = 'File(s) attached to record'
-							THEN '<a href="https://my.dreamcitychurch.us/ministryplatformapi/files/'+(SELECT TOP(1) CAST(FIL.Unique_Name AS VARCHAR(50)) FROM dp_Files FIL WHERE FIL.Table_Name = 'Form_Response_Answers' AND FIL.Record_ID = FRA.Form_Response_Answer_ID)+'" >Download File Here</a>'
+							THEN '<a href="https://' + @ExternalURL + '/ministryplatformapi/files/'+(SELECT TOP(1) CAST(FIL.Unique_Name AS VARCHAR(50)) FROM dp_Files FIL WHERE FIL.Table_Name = 'Form_Response_Answers' AND FIL.Record_ID = FRA.Form_Response_Answer_ID)+'" >Download File Here</a>'
 							ELSE ISNULL(FRA.Response,'')
 						 END 
 						 + '</li>','')
@@ -267,3 +268,4 @@ BEGIN
 
 -- Done with our initial 'if template exists'
 END
+
